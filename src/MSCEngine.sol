@@ -2,6 +2,8 @@
 pragma solidity ^0.8.18;
 
 import {MuhStablecoin} from "./MuhStablecoin.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title MSCEngine
@@ -14,15 +16,26 @@ import {MuhStablecoin} from "./MuhStablecoin.sol";
  * @notice This contract is the core of the MSC System. It handles all logic for mining and redeeming MSC, as well as depositing & withdrawing collateral.
  * @notice This contract is very loosely based on MakerDAO's DSS (DAI) system.
  */
-contract MSCEngine {
+contract MSCEngine is ReentrancyGuard {
     // Errors
     error MSCEngine__NeedsMoreThanZero();
     error MSCEngine__TokenAndPriceFeedAddressesMustBeSameLength();
+    error MSCEngine__NotAllowedToken();
+    error MSCEngine__TransferFailed();
 
     // State Variables
     mapping(address token => address priceFeed) private s_priceFeeds; // tokenToPriceFeed
+    mapping(address user => mapping(address token => uint256 amount))
+        private s_collateralDeposited;
 
     MuhStablecoin private immutable i_msc;
+
+    // Events
+    event CollateralDeposited(
+        address indexed user,
+        address indexed token,
+        uint256 indexed amount
+    );
 
     // Modifiers
     modifier moreThanZero(uint256 amount) {
@@ -30,6 +43,13 @@ contract MSCEngine {
         _;
     }
 
+    modifier isAllowedToken(address token) {
+        if (s_priceFeeds[token] == address(0))
+            revert MSCEngine__NotAllowedToken();
+        _;
+    }
+
+    // Functions
     constructor(
         address[] memory tokenAddresses,
         address[] memory priceFeedAddresses,
@@ -50,10 +70,36 @@ contract MSCEngine {
     // External Functions
     function depositCollateralAndMintMSC() external {}
 
+    /**
+     * @param tokenCollateralAddress The address of the token to deposit as collateral
+     * @param amountCollateral The amount of collateral to deposit
+     */
     function depositCollateral(
         address tokenCollateralAddress,
-        uint256 tokenCollateral
-    ) external {}
+        uint256 amountCollateral
+    )
+        external
+        moreThanZero(amountCollateral)
+        isAllowedToken(tokenCollateralAddress)
+        nonReentrant
+    {
+        s_collateralDeposited[msg.sender][
+            tokenCollateralAddress
+        ] += amountCollateral;
+
+        emit CollateralDeposited(
+            msg.sender,
+            tokenCollateralAddress,
+            amountCollateral
+        );
+        bool success = IERC20(tokenCollateralAddress).transferFrom(
+            msg.sender,
+            address(this),
+            amountCollateral
+        );
+
+        if (!success) revert MSCEngine__TransferFailed();
+    }
 
     function redeemCollateralForMSC() external {}
 
