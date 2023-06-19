@@ -24,6 +24,7 @@ contract MSCEngine is ReentrancyGuard {
     error MSCEngine__NotAllowedToken();
     error MSCEngine__TransferFailed();
     error MSCEngine__BreaksHealthFactor(uint256 healthFactor);
+    error MSCEngine__MintFailed();
 
     // State Variables
     uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
@@ -129,6 +130,9 @@ contract MSCEngine is ReentrancyGuard {
         s_MSCMinted[msg.sender] += amountMSCToMint;
         // revert if they mint too much
         _revertIfHealthFactorIsBroken(msg.sender);
+
+        bool minted = i_msc.mint(msg.sender, amountMSCToMint);
+        if (!minted) revert MSCEngine__MintFailed();
     }
 
     function burnMSC() external {}
