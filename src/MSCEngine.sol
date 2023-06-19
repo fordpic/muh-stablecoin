@@ -4,6 +4,7 @@ pragma solidity ^0.8.18;
 import {MuhStablecoin} from "./MuhStablecoin.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
 /**
  * @title MSCEngine
@@ -24,9 +25,14 @@ contract MSCEngine is ReentrancyGuard {
     error MSCEngine__TransferFailed();
 
     // State Variables
+    uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
+
     mapping(address token => address priceFeed) private s_priceFeeds; // tokenToPriceFeed
     mapping(address user => mapping(address token => uint256 amount))
         private s_collateralDeposited;
+    mapping(address user => uint256 amountMSCMinted) private s_MSCMinted;
+
+    address[] private s_collateralTokens;
 
     MuhStablecoin private immutable i_msc;
 
@@ -62,6 +68,7 @@ contract MSCEngine is ReentrancyGuard {
         // if they have a price feed, they allowed
         for (uint256 i = 0; i < tokenAddresses.length; i++) {
             s_priceFeeds[tokenAddresses[i]] = priceFeedAddresses[i];
+            s_collateralTokens.push(tokenAddresses[i]);
         }
 
         i_msc = MuhStablecoin(mscAddress);
@@ -71,6 +78,7 @@ contract MSCEngine is ReentrancyGuard {
     function depositCollateralAndMintMSC() external {}
 
     /**
+     * @notice Follows CEI pattern
      * @param tokenCollateralAddress The address of the token to deposit as collateral
      * @param amountCollateral The amount of collateral to deposit
      */
@@ -92,6 +100,7 @@ contract MSCEngine is ReentrancyGuard {
             tokenCollateralAddress,
             amountCollateral
         );
+
         bool success = IERC20(tokenCollateralAddress).transferFrom(
             msg.sender,
             address(this),
@@ -105,11 +114,59 @@ contract MSCEngine is ReentrancyGuard {
 
     function redeemCollateral() external {}
 
-    function mintMSC() external {}
+    /**
+     * @notice Follows CEI pattern
+     * @param amountMSCToMint The amount of MSC to mint
+     * @notice Must have more collateral value than the minimum threshold
+     */
+    function mintMSC(
+        uint256 amountMSCToMint
+    ) external moreThanZero(amountMSCToMint) nonReentrant {
+        s_MSCMinted[msg.sender] += amountMSCToMint;
+        // revert if they mint too much
+        _revertIfHealthFactorIsBroken(msg.sender);
+    }
 
     function burnMSC() external {}
 
     function liquidate() external {}
 
     function getHealthFactor() external view {}
+
+    // Private & Internal Functions
+    function _getAccountInformation(
+        address user
+    )
+        private
+        view
+        returns (uint256 totalMSCMinted, uint256 collateralValueInUsd)
+    {
+        totalMSCMinted = s_MSCMinted[user];
+        collateralValueInUsd = getAccountCollateralValue();
+    }
+
+    function _healthFactor(address user) private view returns (uint256) {}
+
+    function _revertIfHealthFactorIsBroken(address user) internal view {}
+
+    // Public & External View Functions
+    function getAccountCollateralValue(
+        address user
+    ) public view returns (uint256) {
+        // loop thru each collateral token, get amount deposited, and map it to the price to get the USD value
+        for (uint256 i = 0; i < s_collateralTokens.length; i++) {
+            address token = s_collateralTokens[i];
+            uint256 amount = s_collateralDeposited[user][token];
+        }
+    }
+
+    function getUsdValue(
+        address token,
+        uint256 amount
+    ) public view returns (uint256) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(
+            s_priceFeeds[token]
+        );
+        (, int256 price, , , ) = priceFeed.latestRoundData();
+    }
 }
