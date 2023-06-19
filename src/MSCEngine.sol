@@ -23,9 +23,13 @@ contract MSCEngine is ReentrancyGuard {
     error MSCEngine__TokenAndPriceFeedAddressesMustBeSameLength();
     error MSCEngine__NotAllowedToken();
     error MSCEngine__TransferFailed();
+    error MSCEngine__BreaksHealthFactor(uint256 healthFactor);
 
     // State Variables
     uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
+    uint256 private constant LIQUIDATION_THRESHOLD = 50; // 200% overcollateralized
+    uint256 private constant LIQUIDATION_PRECISION = 100;
+    uint256 private constant MIN_HEALTH_FACTOR = 1;
 
     mapping(address token => address priceFeed) private s_priceFeeds; // tokenToPriceFeed
     mapping(address user => mapping(address token => uint256 amount))
@@ -142,22 +146,43 @@ contract MSCEngine is ReentrancyGuard {
         returns (uint256 totalMSCMinted, uint256 collateralValueInUsd)
     {
         totalMSCMinted = s_MSCMinted[user];
-        collateralValueInUsd = getAccountCollateralValue();
+        collateralValueInUsd = getAccountCollateralValue(user);
     }
 
-    function _healthFactor(address user) private view returns (uint256) {}
+    /**
+     * @notice Returns how close to liquidation a user is
+     * @notice If health factor goes below 1, that user can get liquidated
+     */
+    function _healthFactor(address user) private view returns (uint256) {
+        (
+            uint256 totalMSCMinted,
+            uint256 collateralValueInUsd
+        ) = _getAccountInformation(user);
 
-    function _revertIfHealthFactorIsBroken(address user) internal view {}
+        uint256 collateralAdjustedForThreshold = (collateralValueInUsd *
+            LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
+
+        return (collateralAdjustedForThreshold * 10e18) / totalMSCMinted;
+    }
+
+    function _revertIfHealthFactorIsBroken(address user) internal view {
+        uint256 userHealthFactor = _healthFactor(user);
+        if (userHealthFactor < MIN_HEALTH_FACTOR) {
+            revert MSCEngine__BreaksHealthFactor(userHealthFactor);
+        }
+    }
 
     // Public & External View Functions
     function getAccountCollateralValue(
         address user
-    ) public view returns (uint256) {
+    ) public view returns (uint256 totalCollateralValueInUsd) {
         // loop thru each collateral token, get amount deposited, and map it to the price to get the USD value
         for (uint256 i = 0; i < s_collateralTokens.length; i++) {
             address token = s_collateralTokens[i];
             uint256 amount = s_collateralDeposited[user][token];
+            totalCollateralValueInUsd += getUsdValue(token, amount);
         }
+        return totalCollateralValueInUsd;
     }
 
     function getUsdValue(
@@ -168,5 +193,7 @@ contract MSCEngine is ReentrancyGuard {
             s_priceFeeds[token]
         );
         (, int256 price, , , ) = priceFeed.latestRoundData();
+
+        return ((uint256(price) * ADDITIONAL_FEED_PRECISION) * amount) / 1e18;
     }
 }
