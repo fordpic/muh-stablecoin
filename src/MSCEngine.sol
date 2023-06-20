@@ -24,13 +24,16 @@ contract MSCEngine is ReentrancyGuard {
     error MSCEngine__NotAllowedToken();
     error MSCEngine__TransferFailed();
     error MSCEngine__BreaksHealthFactor(uint256 healthFactor);
+    error MSCEngine__HealthFactorOk();
     error MSCEngine__MintFailed();
+    error MSCEngine__HealthFactorNotImproved();
 
     // State Variables
     uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
     uint256 private constant LIQUIDATION_THRESHOLD = 50; // 200% overcollateralized
     uint256 private constant LIQUIDATION_PRECISION = 100;
-    uint256 private constant MIN_HEALTH_FACTOR = 1;
+    uint256 private constant MIN_HEALTH_FACTOR = 1e18;
+    uint256 private constant LIQUIDATION_BONUS = 10;
 
     mapping(address token => address priceFeed) private s_priceFeeds; // tokenToPriceFeed
     mapping(address user => mapping(address token => uint256 amount))
@@ -49,9 +52,10 @@ contract MSCEngine is ReentrancyGuard {
     );
 
     event CollateralRedeemed(
-        address indexed user,
+        address indexed redeemedFrom,
+        address indexed redeemedTo,
         address indexed token,
-        uint256 indexed amount
+        uint256 amount
     );
 
     // Modifiers
@@ -111,7 +115,7 @@ contract MSCEngine is ReentrancyGuard {
         address tokenCollateralAddress,
         uint256 amountCollateral
     )
-        external
+        public
         moreThanZero(amountCollateral)
         isAllowedToken(tokenCollateralAddress)
         nonReentrant
@@ -135,26 +139,32 @@ contract MSCEngine is ReentrancyGuard {
         if (!success) revert MSCEngine__TransferFailed();
     }
 
-    function redeemCollateralForMSC() external {}
+    /**
+     * @param tokenCollateralAddress The collateral address to redeem
+     * @param amountCollateral The amount of collateral to redeem
+     * @param amountMSCToBurn The amount of MSC to burn
+     * @notice Redeems underlying collateral and burns MSC in a single transaction
+     */
+    function redeemCollateralForMSC(
+        address tokenCollateralAddress,
+        uint256 amountCollateral,
+        uint256 amountMSCToBurn
+    ) external {
+        burnMSC(amountMSCToBurn);
+        redeemCollateral(tokenCollateralAddress, amountCollateral);
+        // redeemCollateral already checks health factor, so no check needed here
+    }
 
     function redeemCollateral(
         address tokenCollateralAddress,
         uint256 amountCollateral
-    ) external moreThanZero(amountCollateral) nonReentrant {
-        s_collateralDeposited[msg.sender][
-            tokenCollateralAddress
-        ] -= amountCollateral;
-
-        emit CollateralRedeemed(
+    ) public moreThanZero(amountCollateral) nonReentrant {
+        _redeemCollateral(
+            msg.sender,
             msg.sender,
             tokenCollateralAddress,
             amountCollateral
         );
-        bool success = IERC20(tokenCollateralAddress).transfer(
-            msg.sender,
-            amountCollateral
-        );
-        if (!success) revert MSCEngine__TransferFailed();
         _revertIfHealthFactorIsBroken(msg.sender);
     }
 
@@ -173,13 +183,102 @@ contract MSCEngine is ReentrancyGuard {
         if (!minted) revert MSCEngine__MintFailed();
     }
 
-    function burnMSC() external {}
+    function burnMSC(uint256 amount) public moreThanZero(amount) {
+        _burnMSC(amount, msg.sender, msg.sender);
+        _revertIfHealthFactorIsBroken(msg.sender); // dont think this will ever hit but just in case
+    }
 
-    function liquidate() external {}
+    // If someone is almost undercollateralized, we will pay you to liquidate them
+    /**
+     * @param collateral The ERC20 collateral address to liquidate from user
+     * @param user The address of the user to liquidate
+     * @param debtToCover The amount of MSC to burn to improve the user's health facttor
+     * @notice You can partially liquidate a user
+     * @notice Liquidators receive a liquidation bonus
+     * @notice This function assumes the protocol is 200% overcollateralized
+     * @notice If protocol is under 100% collateralization, liquidators will not be incentivized [Known Bug]
+     */
+    function liquidate(
+        address collateral,
+        address user,
+        uint256 debtToCover
+    ) external moreThanZero(debtToCover) nonReentrant {
+        // Check health factor of user
+        uint256 startingUserHealthFactor = _healthFactor(user);
+        if (startingUserHealthFactor >= MIN_HEALTH_FACTOR)
+            revert MSCEngine__HealthFactorOk();
+
+        // Need to burn MSC debt + take collateral
+        uint256 tokenAmountFromDebtCovered = getTokenAmountFromUsd(
+            collateral,
+            debtToCover
+        );
+
+        // Give liquidator 10% bonus
+        uint256 bonusCollateral = (tokenAmountFromDebtCovered *
+            LIQUIDATION_BONUS) / LIQUIDATION_PRECISION;
+
+        uint256 totalCollateralToRedeem = tokenAmountFromDebtCovered +
+            bonusCollateral;
+
+        _redeemCollateral(
+            user,
+            msg.sender,
+            collateral,
+            totalCollateralToRedeem
+        );
+
+        // Burn MSC
+        _burnMSC(debtToCover, user, msg.sender);
+
+        // Check health factor
+        uint256 endingUserHealthFactor = _healthFactor(user);
+        if (endingUserHealthFactor <= startingUserHealthFactor)
+            revert MSCEngine__HealthFactorNotImproved();
+        _revertIfHealthFactorIsBroken(msg.sender);
+    }
 
     function getHealthFactor() external view {}
 
     // Private & Internal Functions
+
+    function _burnMSC(
+        uint256 amountMSCToBurn,
+        address onBehalfOf,
+        address mscFrom
+    ) private {
+        s_MSCMinted[onBehalfOf] -= amountMSCToBurn;
+        bool success = i_msc.transferFrom(
+            mscFrom,
+            address(this),
+            amountMSCToBurn
+        );
+        if (!success) revert MSCEngine__TransferFailed();
+
+        i_msc.burn(amountMSCToBurn);
+    }
+
+    function _redeemCollateral(
+        address from,
+        address to,
+        address tokenCollateralAddress,
+        uint256 amountCollateral
+    ) private {
+        s_collateralDeposited[from][tokenCollateralAddress] -= amountCollateral;
+
+        emit CollateralRedeemed(
+            from,
+            to,
+            tokenCollateralAddress,
+            amountCollateral
+        );
+        bool success = IERC20(tokenCollateralAddress).transfer(
+            to,
+            amountCollateral
+        );
+        if (!success) revert MSCEngine__TransferFailed();
+    }
+
     function _getAccountInformation(
         address user
     )
@@ -215,6 +314,21 @@ contract MSCEngine is ReentrancyGuard {
     }
 
     // Public & External View Functions
+
+    function getTokenAmountFromUsd(
+        address token,
+        uint256 usdAmountInWei
+    ) public view returns (uint256) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(
+            s_priceFeeds[token]
+        );
+        (, int256 price, , , ) = priceFeed.latestRoundData();
+
+        return
+            (usdAmountInWei * 1e18) /
+            (uint256(price) * ADDITIONAL_FEED_PRECISION);
+    }
+
     function getAccountCollateralValue(
         address user
     ) public view returns (uint256 totalCollateralValueInUsd) {
