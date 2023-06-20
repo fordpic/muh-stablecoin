@@ -48,6 +48,12 @@ contract MSCEngine is ReentrancyGuard {
         uint256 indexed amount
     );
 
+    event CollateralRedeemed(
+        address indexed user,
+        address indexed token,
+        uint256 indexed amount
+    );
+
     // Modifiers
     modifier moreThanZero(uint256 amount) {
         if (amount == 0) revert MSCEngine__NeedsMoreThanZero();
@@ -80,12 +86,26 @@ contract MSCEngine is ReentrancyGuard {
     }
 
     // External Functions
-    function depositCollateralAndMintMSC() external {}
 
     /**
-     * @notice Follows CEI pattern
      * @param tokenCollateralAddress The address of the token to deposit as collateral
      * @param amountCollateral The amount of collateral to deposit
+     * @param amountMSCToMint The amount of MSC to mint
+     * @notice Deposits your collateral and mints MSC in a single transaction
+     */
+    function depositCollateralAndMintMSC(
+        address tokenCollateralAddress,
+        uint256 amountCollateral,
+        uint256 amountMSCToMint
+    ) external {
+        depositCollateral(tokenCollateralAddress, amountCollateral);
+        mintMSC(amountMSCToMint);
+    }
+
+    /**
+     * @param tokenCollateralAddress The address of the token to deposit as collateral
+     * @param amountCollateral The amount of collateral to deposit
+     * @notice Follows CEI pattern
      */
     function depositCollateral(
         address tokenCollateralAddress,
@@ -117,16 +137,34 @@ contract MSCEngine is ReentrancyGuard {
 
     function redeemCollateralForMSC() external {}
 
-    function redeemCollateral() external {}
+    function redeemCollateral(
+        address tokenCollateralAddress,
+        uint256 amountCollateral
+    ) external moreThanZero(amountCollateral) nonReentrant {
+        s_collateralDeposited[msg.sender][
+            tokenCollateralAddress
+        ] -= amountCollateral;
+
+        emit CollateralRedeemed(
+            msg.sender,
+            tokenCollateralAddress,
+            amountCollateral
+        );
+        bool success = IERC20(tokenCollateralAddress).transfer(
+            msg.sender,
+            amountCollateral
+        );
+        if (!success) revert MSCEngine__TransferFailed();
+        _revertIfHealthFactorIsBroken(msg.sender);
+    }
 
     /**
-     * @notice Follows CEI pattern
      * @param amountMSCToMint The amount of MSC to mint
      * @notice Must have more collateral value than the minimum threshold
      */
     function mintMSC(
         uint256 amountMSCToMint
-    ) external moreThanZero(amountMSCToMint) nonReentrant {
+    ) public moreThanZero(amountMSCToMint) nonReentrant {
         s_MSCMinted[msg.sender] += amountMSCToMint;
         // revert if they mint too much
         _revertIfHealthFactorIsBroken(msg.sender);

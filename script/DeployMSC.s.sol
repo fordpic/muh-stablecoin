@@ -10,7 +10,7 @@ contract DeployMSC is Script {
     address[] public tokenAddresses;
     address[] public priceFeedAddresses;
 
-    function run() external returns (MuhStablecoin, MSCEngine) {
+    function run() external returns (MuhStablecoin, MSCEngine, HelperConfig) {
         HelperConfig config = new HelperConfig();
 
         (
@@ -35,6 +35,6 @@ contract DeployMSC is Script {
         msc.transferOwnership(address(engine)); // have to transfer bc MSC is ownable
         vm.stopBroadcast();
 
-        return (msc, engine);
+        return (msc, engine, config);
     }
 }
