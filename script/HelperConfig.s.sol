@@ -20,7 +20,7 @@ contract HelperConfig is Script {
         uint256 deployerKey;
     }
 
-    uint256 public DEFAULT_ANVIL_KEY =
+    uint256 public constant DEFAULT_ANVIL_KEY =
         0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
 
     constructor() {
@@ -52,13 +52,13 @@ contract HelperConfig is Script {
             DECIMALS,
             ETH_USD_PRICE
         );
-        ERC20Mock wethMock = new ERC20Mock("WETH", "WETH");
+        ERC20Mock wethMock = new ERC20Mock();
 
         MockV3Aggregator btcUsdPriceFeed = new MockV3Aggregator(
             DECIMALS,
             BTC_USD_PRICE
         );
-        ERC20Mock wbtcMock = new ERC20Mock("WBTC", "WBTC");
+        ERC20Mock wbtcMock = new ERC20Mock();
         vm.stopBroadcast();
 
         return

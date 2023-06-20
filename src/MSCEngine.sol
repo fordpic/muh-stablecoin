@@ -14,7 +14,7 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/Ag
  *
  * The MSC system should always be overcollateralized.
  *
- * @notice This contract is the core of the MSC System. It handles all logic for mining and redeeming MSC, as well as depositing & withdrawing collateral.
+ * @notice This contract is the core of the MSC System. It handles all logic for minting and redeeming MSC, as well as depositing & withdrawing collateral.
  * @notice This contract is very loosely based on MakerDAO's DSS (DAI) system.
  */
 contract MSCEngine is ReentrancyGuard {
