@@ -15,6 +15,7 @@ contract MSCEngineTest is Test {
     HelperConfig config;
 
     address ethUsdPriceFeed;
+    address btcUsdPriceFeed;
     address weth;
 
     address public USER = makeAddr("user");
@@ -27,6 +28,16 @@ contract MSCEngineTest is Test {
         (ethUsdPriceFeed, , weth, , ) = config.activeNetworkConfig();
 
         ERC20Mock(weth).mint(USER, STARTING_ERC20_BALANCE);
+    }
+
+    // Constructor Tests
+    address[] public tokenAddresses;
+    address[] public priceFeedAddresses;
+
+    function testRevertIfTokenLengthDoesntMatchPriceFeeds() public {
+        tokenAddresses.push(weth);
+        priceFeedAddresses.push(ethUsdPriceFeed);
+        priceFeedAddresses.push(btcUsdPriceFeed);
     }
 
     // Price Tests
