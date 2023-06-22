@@ -352,4 +352,14 @@ contract MSCEngine is ReentrancyGuard {
 
         return ((uint256(price) * ADDITIONAL_FEED_PRECISION) * amount) / 1e18;
     }
+
+    function getAccountInformation(
+        address user
+    )
+        external
+        view
+        returns (uint256 totalMSCMinted, uint256 collateralValueInUsd)
+    {
+        (totalMSCMinted, collateralValueInUsd) = _getAccountInformation(user);
+    }
 }

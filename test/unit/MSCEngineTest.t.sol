@@ -83,4 +83,29 @@ contract MSCEngineTest is Test {
         engine.depositCollateral(address(testToken), AMOUNT_COLLATERAL);
         vm.stopPrank();
     }
+
+    modifier depositedCollateral() {
+        vm.startPrank(USER);
+        ERC20Mock(weth).approve(address(engine), AMOUNT_COLLATERAL);
+        engine.depositCollateral(weth, AMOUNT_COLLATERAL);
+        vm.stopPrank();
+        _;
+    }
+
+    function testCanDepositCollateralAndGetAccountInfo()
+        public
+        depositedCollateral
+    {
+        (uint256 totalMSCMinted, uint256 collateralValueInUsd) = engine
+            .getAccountInformation(USER);
+
+        uint256 expectedTotalMSCMinted = 0;
+        uint256 expectedDepositAmount = engine.getTokenAmountFromUsd(
+            weth,
+            collateralValueInUsd
+        );
+
+        assertEq(totalMSCMinted, expectedTotalMSCMinted);
+        assertEq(AMOUNT_COLLATERAL, expectedDepositAmount);
+    }
 }
