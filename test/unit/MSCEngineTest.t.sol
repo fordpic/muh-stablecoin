@@ -25,7 +25,8 @@ contract MSCEngineTest is Test {
     function setUp() public {
         deployer = new DeployMSC();
         (msc, engine, config) = deployer.run();
-        (ethUsdPriceFeed, , weth, , ) = config.activeNetworkConfig();
+        (ethUsdPriceFeed, btcUsdPriceFeed, weth, , ) = config
+            .activeNetworkConfig();
 
         ERC20Mock(weth).mint(USER, STARTING_ERC20_BALANCE);
     }
@@ -38,6 +39,13 @@ contract MSCEngineTest is Test {
         tokenAddresses.push(weth);
         priceFeedAddresses.push(ethUsdPriceFeed);
         priceFeedAddresses.push(btcUsdPriceFeed);
+
+        vm.expectRevert(
+            MSCEngine
+                .MSCEngine__TokenAndPriceFeedAddressesMustBeSameLength
+                .selector
+        );
+        new MSCEngine(tokenAddresses, priceFeedAddresses, address(msc));
     }
 
     // Price Tests
@@ -49,6 +57,14 @@ contract MSCEngineTest is Test {
         assertEq(expectedUsd, actualUsd);
     }
 
+    function testGetTokenAmountFromUsd() public {
+        uint256 usdAmount = 100 ether;
+        uint256 expectedWeth = 0.05 ether;
+        uint256 actualWeth = engine.getTokenAmountFromUsd(weth, usdAmount);
+
+        assertEq(expectedWeth, actualWeth);
+    }
+
     // Deposit Collateral Tests
     function testRevertsIfCollateralZero() public {
         vm.startPrank(USER);
@@ -56,6 +72,15 @@ contract MSCEngineTest is Test {
 
         vm.expectRevert(MSCEngine.MSCEngine__NeedsMoreThanZero.selector);
         engine.depositCollateral(weth, 0);
+        vm.stopPrank();
+    }
+
+    function testRevertsWithUnapprovedCollateral() public {
+        ERC20Mock testToken = new ERC20Mock();
+        vm.startPrank(USER);
+        vm.expectRevert(MSCEngine.MSCEngine__NotAllowedToken.selector);
+
+        engine.depositCollateral(address(testToken), AMOUNT_COLLATERAL);
         vm.stopPrank();
     }
 }
