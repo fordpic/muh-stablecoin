@@ -3,7 +3,7 @@ pragma solidity ^0.8.18;
 
 import {Script} from "forge-std/Script.sol";
 import {MockV3Aggregator} from "../test/mocks/MockV3Aggregator.sol";
-import {ERC20Mock} from "@openzeppelin/contracts/mocks/ERC20Mock.sol";
+import {ERC20Mock} from "../test/mocks/ERC20Mock.sol";
 
 contract HelperConfig is Script {
     NetworkConfig public activeNetworkConfig;
@@ -52,13 +52,13 @@ contract HelperConfig is Script {
             DECIMALS,
             ETH_USD_PRICE
         );
-        ERC20Mock wethMock = new ERC20Mock();
+        ERC20Mock wethMock = new ERC20Mock("WETH", "WETH");
 
         MockV3Aggregator btcUsdPriceFeed = new MockV3Aggregator(
             DECIMALS,
             BTC_USD_PRICE
         );
-        ERC20Mock wbtcMock = new ERC20Mock();
+        ERC20Mock wbtcMock = new ERC20Mock("WBTC", "WBTC");
         vm.stopBroadcast();
 
         return

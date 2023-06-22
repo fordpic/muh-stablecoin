@@ -1,30 +1,29 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import {Test} from "forge-std/Test.sol";
-import {console} from "forge-std/console.sol";
+import {Test, console} from "forge-std/Test.sol";
 import {StdInvariant} from "forge-std/StdInvariant.sol";
 import {DeployMSC} from "../../script/DeployMSC.s.sol";
 import {MSCEngine} from "../../src/MSCEngine.sol";
 import {MuhStablecoin} from "../../src/MuhStablecoin.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
-import {ERC20Mock} from "@openzeppelin/contracts/mocks/ERC20Mock.sol";
+import {ERC20Mock} from "../mocks/ERC20Mock.sol";
 import {Handler} from "./Handler.t.sol";
 
 contract InvariantsTest is StdInvariant, Test {
-    DeployMSC deployer;
-    MSCEngine engine;
-    MuhStablecoin msc;
-    HelperConfig config;
-    Handler handler;
-    address weth;
+    DeployMSC public deployer;
+    MSCEngine public engine;
+    MuhStablecoin public msc;
+    HelperConfig public config;
+    Handler public handler;
+    address public weth;
     address wbtc;
 
     function setUp() external {
         deployer = new DeployMSC();
         (msc, engine, config) = deployer.run();
         (, , weth, wbtc, ) = config.activeNetworkConfig();
-        // targetContract(address(engine));
+
         handler = new Handler(engine, msc);
         targetContract(address(handler));
     }

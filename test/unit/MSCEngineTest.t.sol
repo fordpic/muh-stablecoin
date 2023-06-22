@@ -6,7 +6,7 @@ import {DeployMSC} from "../../script/DeployMSC.s.sol";
 import {MuhStablecoin} from "../../src/MuhStablecoin.sol";
 import {MSCEngine} from "../../src/MSCEngine.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
-import {ERC20Mock} from "@openzeppelin/contracts/mocks/ERC20Mock.sol";
+import {ERC20Mock} from "../mocks/ERC20Mock.sol";
 
 contract MSCEngineTest is Test {
     DeployMSC deployer;
@@ -17,6 +17,7 @@ contract MSCEngineTest is Test {
     address ethUsdPriceFeed;
     address btcUsdPriceFeed;
     address weth;
+    address wbtc;
 
     address public USER = makeAddr("user");
     uint256 public constant AMOUNT_COLLATERAL = 10 ether;
@@ -25,10 +26,15 @@ contract MSCEngineTest is Test {
     function setUp() public {
         deployer = new DeployMSC();
         (msc, engine, config) = deployer.run();
-        (ethUsdPriceFeed, btcUsdPriceFeed, weth, , ) = config
+        (ethUsdPriceFeed, btcUsdPriceFeed, weth, wbtc, ) = config
             .activeNetworkConfig();
 
+        if (block.chainid == 31337) {
+            vm.deal(USER, STARTING_ERC20_BALANCE);
+        }
+
         ERC20Mock(weth).mint(USER, STARTING_ERC20_BALANCE);
+        ERC20Mock(wbtc).mint(USER, STARTING_ERC20_BALANCE);
     }
 
     // Constructor Tests
@@ -76,7 +82,7 @@ contract MSCEngineTest is Test {
     }
 
     function testRevertsWithUnapprovedCollateral() public {
-        ERC20Mock testToken = new ERC20Mock();
+        ERC20Mock testToken = new ERC20Mock("TT", "TT");
         vm.startPrank(USER);
         vm.expectRevert(MSCEngine.MSCEngine__NotAllowedToken.selector);
 
