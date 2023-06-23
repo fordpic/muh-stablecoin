@@ -43,4 +43,9 @@ contract InvariantsTest is StdInvariant, Test {
 
         assert(wethValue + wbtcValue >= totalSupply);
     }
+
+    // function invariant_gettersShouldNotRevert() public view {
+    //     engine.getLiquidationBonus();
+    //     engine.getPrecision();
+    // }
 }

@@ -14,6 +14,7 @@ contract Handler is Test {
     ERC20Mock public wbtc;
 
     uint256 public timesMintIsCalled;
+    address[] public usersWithCollateralDeposited;
 
     uint96 public constant MAX_DEPOSIT_SIZE = type(uint96).max; // max uint96 value so that we dont overflow/revert on a 256 when depositing
 
@@ -26,12 +27,16 @@ contract Handler is Test {
         wbtc = ERC20Mock(collateralTokens[1]);
     }
 
-    function mintMSC(uint256 amount) public {
-        amount = bound(amount, 1, MAX_DEPOSIT_SIZE);
+    function mintMSC(uint256 amount, uint256 addressSeed) public {
+        if (usersWithCollateralDeposited.length == 0) return;
 
-        vm.startPrank(msg.sender);
+        address sender = usersWithCollateralDeposited[
+            addressSeed % usersWithCollateralDeposited.length
+        ];
+
+        vm.startPrank(sender);
         (uint256 totalMSCMinted, uint256 collateralValueInUsd) = engine
-            .getAccountInformation(msg.sender);
+            .getAccountInformation(sender);
 
         int256 maxMSCToMint = (int256(collateralValueInUsd) / 2) -
             int256(totalMSCMinted);
@@ -58,6 +63,9 @@ contract Handler is Test {
         collateral.approve(address(engine), amountCollateral);
         engine.depositCollateral(address(collateral), amountCollateral);
         vm.stopPrank();
+
+        // double push
+        usersWithCollateralDeposited.push(msg.sender);
     }
 
     function redeemCollateral(
