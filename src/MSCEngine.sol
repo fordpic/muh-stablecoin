@@ -5,6 +5,7 @@ import {MuhStablecoin} from "./MuhStablecoin.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import {OracleLib} from "./libraries/OracleLib.sol";
 
 /**
  * @title MSCEngine
@@ -27,6 +28,9 @@ contract MSCEngine is ReentrancyGuard {
     error MSCEngine__HealthFactorOk();
     error MSCEngine__MintFailed();
     error MSCEngine__HealthFactorNotImproved();
+
+    // Types
+    using OracleLib for AggregatorV3Interface;
 
     // State Variables
     uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
@@ -322,7 +326,7 @@ contract MSCEngine is ReentrancyGuard {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(
             s_priceFeeds[token]
         );
-        (, int256 price, , , ) = priceFeed.latestRoundData();
+        (, int256 price, , , ) = priceFeed.staleCheckLatestRoundData();
 
         return
             (usdAmountInWei * 1e18) /
@@ -348,7 +352,7 @@ contract MSCEngine is ReentrancyGuard {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(
             s_priceFeeds[token]
         );
-        (, int256 price, , , ) = priceFeed.latestRoundData();
+        (, int256 price, , , ) = priceFeed.staleCheckLatestRoundData();
 
         return ((uint256(price) * ADDITIONAL_FEED_PRECISION) * amount) / 1e18;
     }
