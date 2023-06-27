@@ -5,6 +5,9 @@ import {Test} from "forge-std/Test.sol";
 import {MSCEngine} from "../../src/MSCEngine.sol";
 import {MuhStablecoin} from "../../src/MuhStablecoin.sol";
 import {ERC20Mock} from "../mocks/ERC20Mock.sol";
+import {MockV3Aggregator} from "../mocks/MockV3Aggregator.sol";
+
+// Handler narrows down the way we call functions
 
 contract Handler is Test {
     MSCEngine public engine;
@@ -12,6 +15,7 @@ contract Handler is Test {
 
     ERC20Mock public weth;
     ERC20Mock public wbtc;
+    MockV3Aggregator public ethUsdPriceFeed;
 
     uint256 public timesMintIsCalled;
     address[] public usersWithCollateralDeposited;
@@ -25,6 +29,10 @@ contract Handler is Test {
         address[] memory collateralTokens = engine.getCollateralTokens();
         weth = ERC20Mock(collateralTokens[0]);
         wbtc = ERC20Mock(collateralTokens[1]);
+
+        ethUsdPriceFeed = MockV3Aggregator(
+            engine.getCollateralTokenPriceFeed(address(weth))
+        );
     }
 
     function mintMSC(uint256 amount, uint256 addressSeed) public {
@@ -81,6 +89,11 @@ contract Handler is Test {
         amountCollateral = bound(amountCollateral, 0, maxCollateral);
         if (amountCollateral == 0) return;
         engine.redeemCollateral(address(collateral), amountCollateral);
+    }
+
+    function updateCollateralPrice(uint96 newPrice) public {
+        int256 newPriceInt = int256(uint256(newPrice));
+        ethUsdPriceFeed.updateAnswer(newPriceInt);
     }
 
     // Helper Functions
