@@ -82,26 +82,29 @@ contract MSCEngineTest is Test {
 
         MockFailedTransferFrom mockMSC = new MockFailedTransferFrom();
         tokenAddresses = [address(mockMSC)];
-        feedAddresses = [ethUsdPriceFeed];
+        priceFeedAddresses = [ethUsdPriceFeed];
 
         vm.prank(owner);
         MSCEngine mockEngine = new MSCEngine(
             tokenAddresses,
-            feedAddresses,
+            priceFeedAddresses,
             address(mockMSC)
         );
-        mockEngine.mint(user, amountCollateral);
+        mockMSC.mint(USER, AMOUNT_COLLATERAL);
 
         vm.prank(owner);
-        mockMSC.transferOwnership(address(mockMSC));
+        mockMSC.transferOwnership(address(mockEngine));
 
         // Arrange - User
-        vm.startPrank(user);
-        ERC20Mock(address(mockMSC)).approve(address(mockMSC), amountCollateral);
+        vm.startPrank(USER);
+        ERC20Mock(address(mockMSC)).approve(
+            address(mockEngine),
+            AMOUNT_COLLATERAL
+        );
 
         // Assert
         vm.expectRevert(MSCEngine.MSCEngine__TransferFailed.selector);
-        mockEngine.depositCollateral(address(mockMSC), amountCollateral);
+        mockEngine.depositCollateral(address(mockMSC), AMOUNT_COLLATERAL);
         vm.stopPrank();
     }
 
