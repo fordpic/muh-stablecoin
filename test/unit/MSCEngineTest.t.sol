@@ -9,15 +9,15 @@ import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {ERC20Mock} from "../mocks/ERC20Mock.sol";
 
 contract MSCEngineTest is Test {
-    DeployMSC deployer;
-    MuhStablecoin msc;
-    MSCEngine engine;
-    HelperConfig config;
+    DeployMSC public deployer;
+    MuhStablecoin public msc;
+    MSCEngine public engine;
+    HelperConfig public config;
 
-    address ethUsdPriceFeed;
-    address btcUsdPriceFeed;
-    address weth;
-    address wbtc;
+    address public ethUsdPriceFeed;
+    address public btcUsdPriceFeed;
+    address public weth;
+    address public wbtc;
 
     address public USER = makeAddr("user");
     uint256 public constant AMOUNT_COLLATERAL = 10 ether;
@@ -72,6 +72,13 @@ contract MSCEngineTest is Test {
     }
 
     // Deposit Collateral Tests
+
+    // This test needs own set up
+    function testRevertsIfTransferFromFails() public {
+        address owner = msg.sender;
+        vm.prank(owner);
+    }
+
     function testRevertsIfCollateralZero() public {
         vm.startPrank(USER);
         ERC20Mock(weth).approve(address(engine), AMOUNT_COLLATERAL);
