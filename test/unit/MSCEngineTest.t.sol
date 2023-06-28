@@ -7,6 +7,7 @@ import {MuhStablecoin} from "../../src/MuhStablecoin.sol";
 import {MSCEngine} from "../../src/MSCEngine.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {ERC20Mock} from "../mocks/ERC20Mock.sol";
+import {MockFailedTransferFrom} from "../mocks/MockFailedTransferFrom.sol";
 
 contract MSCEngineTest is Test {
     DeployMSC public deployer;
@@ -75,8 +76,33 @@ contract MSCEngineTest is Test {
 
     // This test needs own set up
     function testRevertsIfTransferFromFails() public {
+        // Arrange - Set up
         address owner = msg.sender;
         vm.prank(owner);
+
+        MockFailedTransferFrom mockMSC = new MockFailedTransferFrom();
+        tokenAddresses = [address(mockMSC)];
+        feedAddresses = [ethUsdPriceFeed];
+
+        vm.prank(owner);
+        MSCEngine mockEngine = new MSCEngine(
+            tokenAddresses,
+            feedAddresses,
+            address(mockMSC)
+        );
+        mockEngine.mint(user, amountCollateral);
+
+        vm.prank(owner);
+        mockMSC.transferOwnership(address(mockMSC));
+
+        // Arrange - User
+        vm.startPrank(user);
+        ERC20Mock(address(mockMSC)).approve(address(mockMSC), amountCollateral);
+
+        // Assert
+        vm.expectRevert(MSCEngine.MSCEngine__TransferFailed.selector);
+        mockEngine.depositCollateral(address(mockMSC), amountCollateral);
+        vm.stopPrank();
     }
 
     function testRevertsIfCollateralZero() public {
