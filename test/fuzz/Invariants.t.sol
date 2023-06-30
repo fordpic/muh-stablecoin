@@ -16,8 +16,10 @@ contract InvariantsTest is StdInvariant, Test {
     MuhStablecoin public msc;
     HelperConfig public config;
     Handler public handler;
+
     address public weth;
-    address wbtc;
+    address public wbtc;
+    address public USER = makeAddr("user");
 
     function setUp() external {
         deployer = new DeployMSC();
@@ -44,8 +46,11 @@ contract InvariantsTest is StdInvariant, Test {
         assert(wethValue + wbtcValue >= totalSupply);
     }
 
-    // function invariant_gettersShouldNotRevert() public view {
-    //     engine.getLiquidationBonus();
-    //     engine.getPrecision();
-    // }
+    function invariant_gettersShouldNotRevert() public view {
+        engine.getAddtlPrecision();
+        engine.getLiquidationThreshold();
+        engine.getLiquidationPrecision();
+        engine.getMinHealthFactor();
+        engine.getLiquidationBonus();
+    }
 }
