@@ -20,6 +20,8 @@ contract MSCEngineTest is Test {
     address public weth;
     address public wbtc;
 
+    uint256 amountToMint = 100 ether;
+
     address public USER = makeAddr("user");
     uint256 public constant AMOUNT_COLLATERAL = 10 ether;
     uint256 public constant STARTING_ERC20_BALANCE = 10 ether;
@@ -149,5 +151,32 @@ contract MSCEngineTest is Test {
 
         assertEq(totalMSCMinted, expectedTotalMSCMinted);
         assertEq(AMOUNT_COLLATERAL, expectedDepositAmount);
+    }
+
+    function testCanDepositCollateralWithoutMinting()
+        public
+        depositedCollateral
+    {
+        uint256 userBalance = msc.balanceOf(USER);
+        assertEq(userBalance, 0);
+    }
+
+    // Mint Tests
+    function testCanMintMSC() public depositedCollateral {
+        vm.prank(USER);
+        engine.mintMSC(amountToMint);
+
+        uint256 userBalance = msc.balanceOf(USER);
+        assertEq(userBalance, amountToMint);
+    }
+
+    // Redeem Collateral
+    function testCanRedeemDepositedCollateral() public depositedCollateral {
+        vm.startPrank(USER);
+        engine.redeemCollateral(weth, AMOUNT_COLLATERAL);
+        uint256 userBalance = ERC20Mock(weth).balanceOf(USER);
+
+        assertEq(userBalance, AMOUNT_COLLATERAL);
+        vm.stopPrank();
     }
 }

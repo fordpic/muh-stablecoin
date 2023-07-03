@@ -57,9 +57,9 @@ contract MSCEngine is ReentrancyGuard {
 
     event CollateralRedeemed(
         address indexed redeemedFrom,
-        address indexed redeemedTo,
-        address indexed token,
-        uint256 amount
+        uint256 indexed amountCollateral,
+        address from,
+        address to
     );
 
     // Modifiers
@@ -164,10 +164,10 @@ contract MSCEngine is ReentrancyGuard {
         uint256 amountCollateral
     ) public moreThanZero(amountCollateral) nonReentrant {
         _redeemCollateral(
-            msg.sender,
-            msg.sender,
             tokenCollateralAddress,
-            amountCollateral
+            amountCollateral,
+            msg.sender,
+            msg.sender
         );
         _revertIfHealthFactorIsBroken(msg.sender);
     }
@@ -226,10 +226,10 @@ contract MSCEngine is ReentrancyGuard {
             bonusCollateral;
 
         _redeemCollateral(
-            user,
-            msg.sender,
             collateral,
-            totalCollateralToRedeem
+            totalCollateralToRedeem,
+            user,
+            msg.sender
         );
 
         // Burn MSC
@@ -261,19 +261,14 @@ contract MSCEngine is ReentrancyGuard {
     }
 
     function _redeemCollateral(
-        address from,
-        address to,
         address tokenCollateralAddress,
-        uint256 amountCollateral
+        uint256 amountCollateral,
+        address from,
+        address to
     ) private {
         s_collateralDeposited[from][tokenCollateralAddress] -= amountCollateral;
 
-        emit CollateralRedeemed(
-            from,
-            to,
-            tokenCollateralAddress,
-            amountCollateral
-        );
+        emit CollateralRedeemed(from, amountCollateral, from, to);
         bool success = IERC20(tokenCollateralAddress).transfer(
             to,
             amountCollateral
