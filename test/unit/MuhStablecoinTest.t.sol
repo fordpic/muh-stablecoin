@@ -5,9 +5,6 @@ import {Test, console} from "forge-std/Test.sol";
 import {MuhStablecoin} from "../../src/MuhStablecoin.sol";
 
 contract MuhStablecoinTest is Test {
-    error MuhStablecoin__MustBeMoreThanZero();
-    error MuhStablecoin__BurnAmountExceedsBalance();
-
     MuhStablecoin public msc;
     address public USER = makeAddr("user");
 
@@ -22,9 +19,9 @@ contract MuhStablecoinTest is Test {
     function testMintsProperly() public {
         vm.startPrank(USER);
         msc.mint(USER, STARTING_MSC_BALANCE);
+        uint256 userBalance = msc.balanceOf(USER);
         vm.stopPrank();
 
-        uint256 userBalance = msc.balanceOf(USER);
         assertEq(userBalance, STARTING_MSC_BALANCE);
     }
 
@@ -35,9 +32,6 @@ contract MuhStablecoinTest is Test {
         uint256 userCurrentBalance = msc.balanceOf(USER);
         uint256 userExpectedFinalBalance = STARTING_MSC_BALANCE - BURN_AMOUNT;
         vm.stopPrank();
-
-        console.log("Current Balance: ", userCurrentBalance);
-        console.log("Expected Balance: ", userExpectedFinalBalance);
 
         assertEq(userCurrentBalance, userExpectedFinalBalance);
     }
