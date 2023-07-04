@@ -52,4 +52,21 @@ contract MuhStablecoinTest is StdCheats, Test {
 
         assertEq(userCurrentBalance, userExpectedFinalBalance);
     }
+
+    function testMustBurnMoreThanZero() public {
+        vm.startPrank(USER);
+        msc.mint(USER, STARTING_MSC_BALANCE);
+        vm.expectRevert();
+        msc.burn(0);
+        vm.stopPrank();
+    }
+
+    function testCannotBurnMoreThanYouHave() public {
+        vm.startPrank(USER);
+        msc.mint(USER, STARTING_MSC_BALANCE);
+        uint256 tooMuchBurnAmt = STARTING_MSC_BALANCE + 1 ether;
+        vm.expectRevert();
+        msc.burn(tooMuchBurnAmt);
+        vm.stopPrank();
+    }
 }
