@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, console} from "forge-std/Test.sol";
 import {DeployMSC} from "../../script/DeployMSC.s.sol";
 import {MuhStablecoin} from "../../src/MuhStablecoin.sol";
 import {MSCEngine} from "../../src/MSCEngine.sol";
@@ -173,10 +173,12 @@ contract MSCEngineTest is Test {
     // Redeem Collateral
     function testCanRedeemDepositedCollateral() public depositedCollateral {
         vm.startPrank(USER);
-        engine.redeemCollateral(weth, AMOUNT_COLLATERAL);
+        engine.mintMSC(amountToMint - 2 ether);
+        uint256 withdrawalAmt = AMOUNT_COLLATERAL - 1 ether;
+        engine.redeemCollateral(weth, withdrawalAmt);
         uint256 userBalance = ERC20Mock(weth).balanceOf(USER);
-
-        assertEq(userBalance, AMOUNT_COLLATERAL);
         vm.stopPrank();
+
+        assertEq(userBalance, withdrawalAmt);
     }
 }
