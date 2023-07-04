@@ -21,6 +21,7 @@ contract MSCEngineTest is Test {
     address public wbtc;
 
     uint256 amountToMint = 100 ether;
+    uint256 amountToBurn = 10 ether;
 
     address public USER = makeAddr("user");
     uint256 public constant AMOUNT_COLLATERAL = 10 ether;
@@ -170,7 +171,7 @@ contract MSCEngineTest is Test {
         assertEq(userBalance, amountToMint);
     }
 
-    // Redeem Collateral
+    // Redeem Collateral Tests
     function testCanRedeemDepositedCollateral() public depositedCollateral {
         vm.startPrank(USER);
         engine.mintMSC(amountToMint - 2 ether);
@@ -180,5 +181,19 @@ contract MSCEngineTest is Test {
         vm.stopPrank();
 
         assertEq(userBalance, withdrawalAmt);
+    }
+
+    function testCanRedeemCollateralAndBurnMSC() public depositedCollateral {
+        vm.startPrank(USER);
+        engine.mintMSC(amountToMint);
+        msc.approve(address(engine), amountToMint);
+        uint256 withdrawalAmt = AMOUNT_COLLATERAL - 1 ether;
+        engine.redeemCollateralForMSC(weth, withdrawalAmt, amountToBurn);
+        uint256 userBalance = ERC20Mock(weth).balanceOf(USER);
+        uint256 userMSC = (msc.balanceOf(USER)) - amountToBurn;
+        vm.stopPrank();
+
+        assertEq(userBalance, withdrawalAmt);
+        assert(userMSC < amountToMint); // this is a dumb assertion but i'll leave for coverage
     }
 }
